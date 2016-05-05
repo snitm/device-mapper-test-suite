@@ -147,119 +147,6 @@ class DiscardQuickTests < ThinpTestCase
   include DiskUnits
   extend TestUtils
 
-  def unmapping_check(discardable, passdown)
-    if discardable
-      with_discardable_pool(@size, :discard_passdown => passdown) do |pool, fd_dev|
-        data_limits = DiscardLimits.new(fd_dev.to_s)
-        pool_limits = DiscardLimits.new(pool.to_s)
-
-        pool_limits.supported.should be_true
-        pool_limits.granularity.should == data_limits.granularity
-
-        with_new_thin(pool, @volume_size, 0) do |thin|
-          thin_limits = DiscardLimits.new(thin.to_s)
-          thin_limits.supported.should be_true
-
-          if passdown
-            # FIXME: when partial discards go in we should change this to be data_limits.granularity
-            thin_limits.granularity.should == @data_block_size * 512
-          else
-            thin_limits.granularity.should == @data_block_size * 512
-          end
-
-          wipe_device(thin)
-          assert_used_blocks(pool, @blocks_per_dev)
-          thin.discard(0, @volume_size)
-          assert_used_blocks(pool, 0)
-        end
-      end
-    else
-      with_non_discardable_pool(@size, :discard_passdown => passdown) do |pool, fd_dev|
-        data_limits = DiscardLimits.new(fd_dev.to_s)
-        pool_limits = DiscardLimits.new(pool.to_s)
-
-        pool_limits.supported.should be_false
-
-        with_new_thin(pool, @volume_size, 0) do |thin|
-          thin_limits = DiscardLimits.new(thin.to_s)
-
-          thin_limits.supported.should be_true
-          thin_limits.granularity.should == @data_block_size * 512
-
-          wipe_device(thin)
-          assert_used_blocks(pool, @blocks_per_dev)
-          thin.discard(0, @volume_size)
-          assert_used_blocks(pool, 0)
-        end
-      end
-    end
-
-    md = read_metadata
-    assert_no_mappings(md, 0)
-  end
-
-  define_test :discard_unmaps_with_passdown_discardable_pool do
-    unmapping_check(true, true)
-  end
-
-  define_test :discard_unmaps_with_no_passdown_discardable_pool do
-    unmapping_check(true, false)
-  end
-
-  define_test :discard_unmaps_with_passdown_non_discardable_pool do
-    unmapping_check(false, true)
-  end
-
-  define_test :discard_unmaps_with_no_passdown_non_discardable_pool do
-    unmapping_check(false, false)
-  end
-
-  define_test :discard_no_unmap_with_discard_disabled_discardable_pool do
-    with_discardable_pool(@size, :discard => false) do |pool, fd_dev|
-      with_new_thin(pool, @volume_size, 0) do |thin|
-        thin_limits = DiscardLimits.new(thin.to_s)
-        thin_limits.supported.should be_false
-
-        wipe_device(thin)
-        assert_used_blocks(pool, @blocks_per_dev)
-
-        caught = false
-        begin
-          thin.discard(0, @volume_size)
-        rescue
-          caught = true
-        end
-
-        assert(caught)
-        assert_used_blocks(pool, @blocks_per_dev)
-      end
-    end
-  end
-
-  define_test :discard_no_unmap_with_discard_disabled_non_discardable_pool do
-    with_non_discardable_pool(@size, :discard => false) do |pool, fd_dev|
-      with_new_thin(pool, @volume_size, 0) do |thin|
-        thin_limits = DiscardLimits.new(thin.to_s)
-        thin_limits.supported.should be_false
-
-        wipe_device(thin)
-        assert_used_blocks(pool, @blocks_per_dev)
-
-        caught = false
-        begin
-          thin.discard(0, @volume_size)
-        rescue
-          caught = true
-        end
-
-        assert(caught)
-        assert_used_blocks(pool, @blocks_per_dev)
-      end
-    end
-  end
-
-  #--------------------------------
-
   define_test :discard_empty_device do
     @size = dev_size(@data_dev)
     @volume_size = @size
@@ -831,6 +718,119 @@ end
 class FakeDiscardTests < ThinpTestCase
   include DiscardMixin
   extend TestUtils
+
+  def unmapping_check(discardable, passdown)
+    if discardable
+      with_discardable_pool(@size, :discard_passdown => passdown) do |pool, fd_dev|
+        data_limits = DiscardLimits.new(fd_dev.to_s)
+        pool_limits = DiscardLimits.new(pool.to_s)
+
+        pool_limits.supported.should be_true
+        pool_limits.granularity.should == data_limits.granularity
+
+        with_new_thin(pool, @volume_size, 0) do |thin|
+          thin_limits = DiscardLimits.new(thin.to_s)
+          thin_limits.supported.should be_true
+
+          if passdown
+            # FIXME: when partial discards go in we should change this to be data_limits.granularity
+            thin_limits.granularity.should == @data_block_size * 512
+          else
+            thin_limits.granularity.should == @data_block_size * 512
+          end
+
+          wipe_device(thin)
+          assert_used_blocks(pool, @blocks_per_dev)
+          thin.discard(0, @volume_size)
+          assert_used_blocks(pool, 0)
+        end
+      end
+    else
+      with_non_discardable_pool(@size, :discard_passdown => passdown) do |pool, fd_dev|
+        data_limits = DiscardLimits.new(fd_dev.to_s)
+        pool_limits = DiscardLimits.new(pool.to_s)
+
+        pool_limits.supported.should be_false
+
+        with_new_thin(pool, @volume_size, 0) do |thin|
+          thin_limits = DiscardLimits.new(thin.to_s)
+
+          thin_limits.supported.should be_true
+          thin_limits.granularity.should == @data_block_size * 512
+
+          wipe_device(thin)
+          assert_used_blocks(pool, @blocks_per_dev)
+          thin.discard(0, @volume_size)
+          assert_used_blocks(pool, 0)
+        end
+      end
+    end
+
+    md = read_metadata
+    assert_no_mappings(md, 0)
+  end
+
+  define_test :discard_unmaps_with_passdown_discardable_pool do
+    unmapping_check(true, true)
+  end
+
+  define_test :discard_unmaps_with_no_passdown_discardable_pool do
+    unmapping_check(true, false)
+  end
+
+  define_test :discard_unmaps_with_passdown_non_discardable_pool do
+    unmapping_check(false, true)
+  end
+
+  define_test :discard_unmaps_with_no_passdown_non_discardable_pool do
+    unmapping_check(false, false)
+  end
+
+  define_test :discard_no_unmap_with_discard_disabled_discardable_pool do
+    with_discardable_pool(@size, :discard => false) do |pool, fd_dev|
+      with_new_thin(pool, @volume_size, 0) do |thin|
+        thin_limits = DiscardLimits.new(thin.to_s)
+        thin_limits.supported.should be_false
+
+        wipe_device(thin)
+        assert_used_blocks(pool, @blocks_per_dev)
+
+        caught = false
+        begin
+          thin.discard(0, @volume_size)
+        rescue
+          caught = true
+        end
+
+        assert(caught)
+        assert_used_blocks(pool, @blocks_per_dev)
+      end
+    end
+  end
+
+  define_test :discard_no_unmap_with_discard_disabled_non_discardable_pool do
+    with_non_discardable_pool(@size, :discard => false) do |pool, fd_dev|
+      with_new_thin(pool, @volume_size, 0) do |thin|
+        thin_limits = DiscardLimits.new(thin.to_s)
+        thin_limits.supported.should be_false
+
+        wipe_device(thin)
+        assert_used_blocks(pool, @blocks_per_dev)
+
+        caught = false
+        begin
+          thin.discard(0, @volume_size)
+        rescue
+          caught = true
+        end
+
+        assert(caught)
+        assert_used_blocks(pool, @blocks_per_dev)
+      end
+    end
+  end
+
+  #--------------------------------
 
   def check_discard_thin_working(thin)
     wipe_device(thin, @data_block_size)
