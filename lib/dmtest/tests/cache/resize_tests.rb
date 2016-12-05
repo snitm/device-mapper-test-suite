@@ -21,6 +21,7 @@ class ResizeTests < ThinpTestCase
   extend TestUtils
 
   POLICY_NAMES = %w(mq smq)
+  METADATA_VERSIONS = [1, 2]
 
   def setup
     super
@@ -28,14 +29,15 @@ class ResizeTests < ThinpTestCase
     @cache_blocks = 1024
   end
 
-  def setup_metadata(nr_blocks)
+  def setup_metadata(nr_blocks, metadata_version)
     s = CacheStack.new(@dm, @metadata_dev, @data_dev,
                        :format => false,
                        :block_size => @data_block_size,
                        :cache_size => nr_blocks * @data_block_size,
+                       :metadata_version => metadata_version,
                        :policy => Policy.new('smq', :migration_threshold => 1024))
     s.activate_support_devs do
-      s.prepare_populated_cache
+      s.prepare_populated_cache(:metadata_version => metadata_version)
       md = dump_metadata(s.md)
       md.superblock.nr_cache_blocks.should == nr_blocks
       md
@@ -54,20 +56,21 @@ class ResizeTests < ThinpTestCase
 
   #--------------------------------
 
-  def mk_stack(policy, nr_blocks)
+  def mk_stack(policy, metadata_version, nr_blocks)
     CacheStack.new(@dm, @metadata_dev, @data_dev,
                    :format => false,
                    :block_size => @data_block_size,
                    :cache_size => nr_blocks * @data_block_size,
+                   :metadata_version => metadata_version,
                    :policy => Policy.new(policy,
                                          :migration_threshold => 0))
   end
 
-  def no_resize_retains_mappings_all_clean(policy)
+  def no_resize_retains_mappings_all_clean(policy, metadata_version)
     [23, 513, 1023, 4095].each do |nr_blocks|
-      s = mk_stack(policy, nr_blocks)
+      s = mk_stack(policy, metadata_version, nr_blocks)
       s.activate_support_devs do
-        s.prepare_populated_cache()
+        s.prepare_populated_cache(:metadata_version => metadata_version)
         md1 = dump_metadata(s.md)
 
         s.activate_top_level {}
@@ -78,15 +81,17 @@ class ResizeTests < ThinpTestCase
     end
   end
 
-  define_tests_across(:no_resize_retains_mappings_all_clean, POLICY_NAMES)
+  define_tests_across(:no_resize_retains_mappings_all_clean,
+                      POLICY_NAMES, METADATA_VERSIONS)
 
   #--------------------------------
 
-  def no_resize_retains_mappings_all_dirty(policy)
+  def no_resize_retains_mappings_all_dirty(policy, metadata_version)
     [23, 513, 1023, 4095].each do |nr_blocks|
-      s = mk_stack(policy, nr_blocks)
+      s = mk_stack(policy, metadata_version, nr_blocks)
       s.activate_support_devs do
-        s.prepare_populated_cache(:dirty_percentage => 100)
+        s.prepare_populated_cache(:dirty_percentage => 100,
+                                  :metadata_version => metadata_version)
         md1 = dump_metadata(s.md)
 
         s.activate_top_level do
@@ -101,7 +106,8 @@ class ResizeTests < ThinpTestCase
     end
   end
 
-  define_tests_across(:no_resize_retains_mappings_all_dirty, POLICY_NAMES)
+  define_tests_across(:no_resize_retains_mappings_all_dirty,
+                      POLICY_NAMES, METADATA_VERSIONS)
 
   #--------------------------------
 
@@ -115,7 +121,7 @@ class ResizeTests < ThinpTestCase
 
   # We need to make sure we test various different discard bitset
   # sizes.  To make the origin big enough we use an error target.
-  def resize_origin_with_teardown(policy)
+  def resize_origin_with_teardown(policy, metadata_version)
     nr_blocks = 1024
     osize1 = gig(4)
     osize2 = meg(128)
@@ -125,6 +131,7 @@ class ResizeTests < ThinpTestCase
                        :block_size => @data_block_size,
                        :cache_size => nr_blocks * @data_block_size,
                        :data_size => osize1,
+                       :metadata_version => metadata_version,
                        :policy => Policy.new(policy, :migration_threshold => 0))
     s.activate do
       s.cache.discard(0, meg(64))
@@ -136,16 +143,18 @@ class ResizeTests < ThinpTestCase
                        :block_size => @data_block_size,
                        :cache_size => nr_blocks * @data_block_size,
                        :data_size => osize2,
+                       :metadata_version => metadata_version,
                        :policy => Policy.new(policy, :migration_threshold => 0))
     s.activate do
     end
   end
 
-  define_tests_across(:resize_origin_with_teardown, POLICY_NAMES)
+  define_tests_across(:resize_origin_with_teardown,
+                      POLICY_NAMES, METADATA_VERSIONS)
 
   #--------------------------------
   
-  def resize_origin_with_reload(policy)
+  def resize_origin_with_reload(policy, metadata_version)
     osize1 = meg(128)
     osize2 = gig(4)
     nr_blocks = 1024
@@ -155,6 +164,7 @@ class ResizeTests < ThinpTestCase
                          :block_size => @data_block_size,
                          :cache_size => nr_blocks * @data_block_size,
                          :data_size => osize1,
+                         :metadata_version => metadata_version,
                          :policy => Policy.new(policy, :migration_threshold => 0))
     s.activate do
       s.cache.discard(0, meg(64))
@@ -163,12 +173,13 @@ class ResizeTests < ThinpTestCase
     end
   end
 
-  define_tests_across(:resize_origin_with_reload, POLICY_NAMES)
+  define_tests_across(:resize_origin_with_reload,
+                      POLICY_NAMES, METADATA_VERSIONS)
 
   #--------------------------------
 
   def grow_test(nr_blocks)
-    md1 = setup_metadata(nr_blocks)
+    md1 = setup_metadata(nr_blocks, 2)
     new_nr_blocks = nr_blocks + 5678
     md2 = activate_kernel(new_nr_blocks)
     md2.mappings.should == md1.mappings
@@ -182,7 +193,7 @@ class ResizeTests < ThinpTestCase
   #--------------------------------
 
   def shrink_test(nr_blocks)
-    md1 = setup_metadata(nr_blocks)
+    md1 = setup_metadata(nr_blocks, 2)
     new_nr_blocks = nr_blocks / 2
     md2 = activate_kernel(new_nr_blocks)
     md2.mappings.should == md1.mappings[0..new_nr_blocks - 1]
