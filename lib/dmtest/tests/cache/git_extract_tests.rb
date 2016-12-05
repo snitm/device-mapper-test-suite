@@ -156,7 +156,7 @@ class GitExtractTests < ThinpTestCase
   #--------------------------------
 
   def thin_on_cache(policy, version)
-    data_size = gig(64)
+    data_size = gig(16)
 
     stack = PoolCacheStack.new(@dm, @metadata_dev, @data_dev,
                                { :policy => Policy.new(policy, :migration_threshold => 1024),

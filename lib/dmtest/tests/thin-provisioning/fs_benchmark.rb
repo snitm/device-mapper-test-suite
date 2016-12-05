@@ -127,11 +127,11 @@ class FSBench < ThinpTestCase
   define_test :fio_thin_unallocated do
     # We're interested in the iops with fast devices, so carve up the
     # metadata dev.
-    size = gig(10)
+    size = gig(5)
 
     tvm = TinyVolumeManager::VM.new
     tvm.add_allocation_volume(@metadata_dev)
-    tvm.add_volume(linear_vol('metadata', gig(1)))
+    tvm.add_volume(linear_vol('metadata', meg(512)))
     tvm.add_volume(linear_vol('data', size))
 
     with_devs(tvm.table('metadata'),
@@ -155,11 +155,11 @@ class FSBench < ThinpTestCase
   define_test :fio_thin_preallocated do
     # We're interested in the iops with fast devices, so carve up the
     # metadata dev.
-    size = gig(10)
+    size = gig(5)
 
     tvm = TinyVolumeManager::VM.new
     tvm.add_allocation_volume(@metadata_dev)
-    tvm.add_volume(linear_vol('metadata', gig(1)))
+    tvm.add_volume(linear_vol('metadata', meg(512)))
     tvm.add_volume(linear_vol('data', size))
 
     with_devs(tvm.table('metadata'),
