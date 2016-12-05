@@ -42,7 +42,7 @@ class ReadOnlyMetadataTests < ThinpTestCase
 
     # now we open it read-only, expecting to be unable to create a rw pool
     with_ro_dev(tvm.table('metadata')) do |metadata|
-      stack = PoolStack.new(@dm, @data_dev, metadata, :data_size => gig(2))
+      stack = PoolStack.new(@dm, @data_dev, metadata, :format => false, :data_size => gig(2))
       expect do
         stack.activate do |pool|
           with_new_thin(pool, @volume_size, 0) do |thin|

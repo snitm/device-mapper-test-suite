@@ -60,6 +60,7 @@ class ImmutableTargetTests < ThinpTestCase
     with_devs(@tvm.table('linear'),
               @tvm.table('pool-data')) do |dev, data|
 
+      wipe_device(@metadata_dev, 8)
       dev.load(Table.new(ThinPoolTarget.new(@metadata_dev_size, @metadata_dev, data, 128, 0)))
       dev.resume
     end
