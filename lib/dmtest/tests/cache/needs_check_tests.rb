@@ -116,7 +116,7 @@ class NeedsCheckTests < ThinpTestCase
   define_test :commit_failure_sets_needs_check_flakey_target do
     commit_failure_sets_needs_check do |metadata_superblock, metadata_body|
       Table.new(LinearTarget.new(dev_size(metadata_superblock), metadata_superblock, 0),
-                FlakeyTarget.new(dev_size(metadata_body), metadata_body, 0, 0, 60))
+                FlakeyTarget.new(dev_size(metadata_body), metadata_body, 0, 0, 60, false, true))
     end
   end
 end
