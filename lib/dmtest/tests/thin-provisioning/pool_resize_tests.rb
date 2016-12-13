@@ -243,18 +243,19 @@ class PoolResizeWithSpaceTests < ThinpTestCase
             status.used_data_blocks >= status.total_data_blocks - low_water_mark
           end
 
-          up_interval = 3
           thin.pause_noflush do
             pool.pause do
-              # establish flakey metadata
-              table = Table.new(FlakeyTarget.new(dev_size(@metadata_dev), @metadata_dev, 0, up_interval, 60))
+              # Establish flakey metadata.  We need the superblock to remain working.
+              superblock_size = 8
+              table = Table.new(LinearTarget.new(superblock_size, @metadata_dev, 0),
+                                FlakeyTarget.new(dev_size(@metadata_dev) - superblock_size,
+                                                 @metadata_dev, superblock_size, 0, 60, false, true))
               metadata.pause do
                 metadata.load(table)
               end
             end
           end
 
-          sleep up_interval * 2
           assert(read_only_or_fail_mode?(pool))
         end
 
