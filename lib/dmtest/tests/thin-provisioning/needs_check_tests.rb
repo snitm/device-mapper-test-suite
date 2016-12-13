@@ -48,12 +48,11 @@ class NeedsCheckTests < ThinpTestCase
           begin
             thin.pause do
               pool.pause do
-                # Establish flakey metadata.  We need the superblock to
-                # remain working.
+                # Establish flakey metadata.  We need the superblock to remain working.
                 superblock_size = 8
                 flakey_table = Table.new(LinearTarget.new(8, @metadata_dev, 0),
                                          FlakeyTarget.new(dev_size(@metadata_dev) - superblock_size,
-                                                          @metadata_dev, 8, 0, 60))
+                                                          @metadata_dev, superblock_size, 0, 60, false, true))
                 metadata.pause do
                   metadata.load(flakey_table)
                 end

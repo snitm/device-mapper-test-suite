@@ -22,10 +22,11 @@ module DM
   #--------------------------------
 
   class FlakeyTarget < Target
-    def initialize(sector_count, dev, offset = 0, up_interval = 60, down_interval = 0, drop_writes = false)
+    def initialize(sector_count, dev, offset = 0, up_interval = 60, down_interval = 0, drop_writes = false, error_writes = false)
       extra_opts = Array.new
       extra_opts.instance_eval do
         push :drop_writes if drop_writes
+        push :error_writes if error_writes
       end
 
       super('flakey', sector_count, dev, offset, up_interval, down_interval, extra_opts.length, *extra_opts)
