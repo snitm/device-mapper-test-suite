@@ -85,9 +85,12 @@ class IOUseTests < ThinpTestCase
   define_test :split_large_file do
     do_split_large_file(:policy => Policy.new('smq'),
                         :block_size => k(64),
-                        :metadata_size => gig(2),
-                        :cache_size => gig(4),
-                        :data_size => gig(48),
+                        :metadata_size => meg(40),
+                        # need to try with gig(48) cache_size... instead of pmem use nvme partition for fast+meta device?
+                        :cache_size => gig(48),
+                        # would like to get up to 512GB to match customer but...
+                        #:data_size => gig(512),
+                        :data_size => gig(210),
                         :io_mode => :writeback,
                         :metadata_version => 2)
   end
