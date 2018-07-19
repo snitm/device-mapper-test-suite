@@ -51,6 +51,47 @@ class IOUseTests < ThinpTestCase
   end
 
   define_tests_across(:no_io_when_idle, POLICY_NAMES, IO_MODES)
+
+  def do_split(dev, fs_type, format_opts = {})
+    fs = FS::file_system(fs_type, dev)
+    STDERR.puts "formatting ..."
+    fs.format(format_opts)
+
+    fs.with_mount('./kernel_builds', :discard => false) do
+      Dir.chdir('./kernel_builds') do
+        STDERR.puts "creating file ..."
+        ProcessControl.run("dd if=/dev/zero of=masterfile bs=1024 count=1000000")
+        # FIXME: somehow split is creating over 4G of files!?
+        ProcessControl.run("df -h")
+        ProcessControl.run("dmsetup table")
+        STDERR.puts "splitting file ..."
+        ProcessControl.run("split -b 1000 -a 10 masterfile")
+        #STDERR.puts "stopping IO to slow data device just before unmount ..."
+        #ProcessControl.run("dmsetup message nvme_mpath 0 fail_path /dev/nvme0n1")
+      end
+    end
+  end
+
+
+  def do_split_large_file(opts)
+    stack = CacheStack.new(@dm, @metadata_dev, @data_dev, opts)
+    stack.activate do |stack|
+      do_split(stack.cache, :xfs)
+      STDERR.puts "stopping IO to slow data device just before device teardown ..."
+      ProcessControl.run("dmsetup message nvme_mpath_real 0 fail_path /dev/nvme0n1")
+    end
+  end
+
+  define_test :split_large_file do
+    do_split_large_file(:policy => Policy.new('smq'),
+                        :block_size => k(64),
+                        :metadata_size => gig(2),
+                        :cache_size => gig(4),
+                        :data_size => gig(48),
+                        :io_mode => :writeback,
+                        :metadata_version => 2)
+  end
+
 end
 
 #----------------------------------------------------------------
